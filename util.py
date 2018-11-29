@@ -105,10 +105,10 @@ def get_pre_rec_f1(prediction_index_list, labels):
     return precision, recall, f1
 
 def get_p1(prediction_score_list, labels, data_path, data_name, split):
-    f = open(os.path.join(data_path, "{}/{}_{}.csv".format(data_name, data_name, split)))
+    f = open(os.path.join(data_path, data_name))
     a2score_label = {}
     for line, p, l in zip(f, prediction_score_list, labels):
-        label, a, b = line.replace("\n", "").split("\t")
+        qid, a, b, label = line.replace("\n", "").split("\t")
         if a not in a2score_label:
             a2score_label[a] = []
         a2score_label[a].append((p, l))
