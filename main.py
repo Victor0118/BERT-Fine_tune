@@ -75,7 +75,7 @@ def print_scores(scores, mode="test"):
     print("")
 
 def load_trained(args):
-    model_path = os.path.join(args.pytorch_dump_path, "{}_finetuned.pt".format(args.data_name))
+    model_path = "model/atec_finetuned.pt"
     print("Load PyTorch model from {}".format(model_path))
     model, tokenizer = load_pretrained_model_tokenizer(args.model_type, device=args.device)
     model.load_state_dict(torch.load(model_path))

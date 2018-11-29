@@ -26,11 +26,11 @@ def load_pretrained_model_tokenizer(model_type="BertForSequenceClassification", 
 
 
 def load_data(data_path, data_name, batch_size, tokenizer, split="train", device="cuda"):
-    f = open(os.path.join(data_path, "{}/{}_{}.csv".format(data_name, data_name, split)))
+    f = open(os.path.join(data_path, data_name))
     test_batch, testid_batch, mask_batch, label_batch = [], [], [], []
     data_set = []
     for l in f:
-        label, a, b = l.replace("\n", "").split("\t")
+        lineno, a, b, label = l.replace("\n", "").split("\t")
         a_index = tokenize_index(a, tokenizer)
         b_index = tokenize_index(b, tokenizer)
         combine_index = a_index + b_index
