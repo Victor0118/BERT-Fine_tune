@@ -1,7 +1,5 @@
 import sys
 import numpy as np
-import subprocess
-import shlex
 
 def evaluate_classification(prediction_index_list, labels):
     acc = get_acc(prediction_index_list, labels)
@@ -10,14 +8,12 @@ def evaluate_classification(prediction_index_list, labels):
 
 def evaluate_ner(prediction_index_list, labels, label_map):
     prediction_index_list, labels = recover_label(prediction_index_list, labels, label_map)
-    assert len(prediction_index_list) == len(labels)
-    print("evaluating {} sentences".format(len(prediction_index_list)))
     return get_ner_fmeasure(prediction_index_list, labels)
 
 def recover_label(prediction_index_list, labels, label_map):
     label_reverse_map = {}
     for k in label_map:
-        label_reverse_map[label_map[k]] = k
+	    label_reverse_map[label_map[k]] = k
 
     pr, lr = [], []
     assert len(prediction_index_list) == len(labels)
@@ -121,7 +117,7 @@ def get_ner_fmeasure(predict_lists, golden_lists, label_type="BMES"):
         f_measure = 2*precision*recall/(precision+recall)
     accuracy = (right_tag+0.0)/all_tag
     # print "Accuracy: ", right_tag,"/",all_tag,"=",accuracy
-    if  label_type.upper().startswith("B"):
+    if  label_type.upper().startswith("B-"):
         print("gold_num = ", golden_num, " pred_num = ", predict_num, " right_num = ", right_num)
     else:
         print("Right token = ", right_tag, " All token = ", all_tag, " acc = ", accuracy)
