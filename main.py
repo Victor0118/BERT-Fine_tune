@@ -200,8 +200,8 @@ def test(args, split="test", model=None, tokenizer=None, test_dataset=None):
     elif args.data_format == "ontonote":
         acc, pre, rec, f1 = evaluate_ner(prediction_index_list, labels, test_dataset.label_map)
     elif args.data_format == "doc2query":
-        acc, pre, rec, f1 = evaluate_doc2query(args.output_path)
-        return [["f1", "acc", "precision", "recall"], [f1, acc, pre, rec]]
+        pre, rec, f1 = evaluate_doc2query(args.output_path)
+        return [["recall", "precision", "f1"], [rec, pre, f1]]
     else:
         acc, pre, rec, f1 = evaluate_classification(prediction_index_list, labels)
     return [["f1", "acc", "precision", "recall"], [f1, acc, pre, rec]]
