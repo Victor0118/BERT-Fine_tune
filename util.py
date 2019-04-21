@@ -68,7 +68,7 @@ class DataGenerator(object):
                     l.replace("\n", "").split("\t")
                 return label, sim, a, b, qid, docid, qidx, didx
 
-        return None, None, None, None, None, None, None
+        return None, None, None, None, None, None, None, None
 
 def load_data(data_path, data_name, batch_size, tokenizer, split="train", device="cuda", tweet=False, add_url=True):
     test_batch, testqid_batch, mask_batch, label_batch, qid_batch, docid_batch = [], [], [], [], [], []
