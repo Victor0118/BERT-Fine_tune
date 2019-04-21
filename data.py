@@ -136,10 +136,11 @@ class DataGenerator(object):
     def epoch_end(self):
         return self.data_i % self.data_size == 0
 
-    def tokenize_index(self, text):
+    def tokenize_index(self, text, pad=True):
         tokenized_text = self.tokenizer.tokenize(text)
-        tokenized_text.insert(0, "[CLS]")
-        tokenized_text.append("[SEP]")
+        if pad:
+            tokenized_text.insert(0, "[CLS]")
+            tokenized_text.append("[SEP]")
         # Convert token to vocabulary indices
         indexed_tokens = self.tokenizer.convert_tokens_to_ids(tokenized_text)
         return indexed_tokens
@@ -157,10 +158,14 @@ class DataGenerator(object):
         return indexed_tokens, segments_ids
 
     def query2label(self, q):
-        q_index = np.array(self.tokenize_index(q))
+        q_index = np.array(self.tokenize_index(q, pad=False))
         label = np.zeros(len(self.tokenizer.vocab), dtype=float)
         label[q_index] = 1
         return label
+
+    def labels2tokens(self, i):
+        ii = np.where(i == 1)[0]
+        return self.ids2tokens(ii)
 
     def ids2tokens(self, i):
         return self.tokenizer.convert_ids_to_tokens(i)

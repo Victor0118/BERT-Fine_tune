@@ -165,7 +165,7 @@ def test(args, split="test", model=None, tokenizer=None, test_dataset=None):
             docids = docid_tensor.cpu().detach().numpy()
             assert len(qids) == len(predicted_index)
             for l, s, qid, docid in zip(label_batch, scores, qids, docids):
-                label = test_dataset.ids2tokens(l)
+                label = test_dataset.labels2tokens(l)
                 label = [tmp for tmp in label if tmp != "[PAD]" and tmp != "[CLS]" and tmp != "[SEP]"]
                 kmax_index = s.argsort()[-args.K:][::-1]
                 prediction_tokens = test_dataset.ids2tokens(kmax_index)

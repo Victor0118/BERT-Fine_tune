@@ -32,6 +32,8 @@ def evaluate_doc2query(fn):
     for l in f:
         precision, recall, f1 = 0, 0, 0
         qid, docid, label_tokens, prediction_tokens = l.replace("\n", "").split("\t")
+        label_tokens = label_tokens.split()
+        prediction_tokens = prediction_tokens.split()
         total += 1
         for lt in label_tokens:
             if lt in prediction_tokens:
