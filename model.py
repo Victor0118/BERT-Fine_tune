@@ -1,9 +1,11 @@
-import torch
-import torch.nn as nn
 import copy
 
-from pytorch_pretrained_bert import BertModel
+import torch
+import torch.nn as nn
+from torch.nn import CrossEntropyLoss
 
+from pytorch_pretrained_bert import BertModel
+from pytorch_pretrained_bert.modeling import BertPreTrainedModel,BertConfig
 
 class BertMSE(nn.Module):
 
@@ -72,22 +74,25 @@ class BertForDoc2Query(BertPreTrainedModel):
     logits = model(input_ids, token_type_ids, input_mask)
     ```
     """
-    def __init__(self, config, num_labels):
-        super(BertForSequenceClassification, self).__init__(config)
-        self.num_labels = num_labels
+    def __init__(self, vocab_size, hidden_size=768, hidden_dropout_prob=0.1):
+        config = BertConfig.from_dict({"vocab_size": vocab_size, "hidden_size": hidden_size, "hidden_dropout_prob": hidden_dropout_prob})
+        super(BertForDoc2Query, self).__init__(config)
         self.bert = BertModel(config)
-        self.dropout = nn.Dropout(config.hidden_dropout_prob)
-        self.classifier = nn.Linear(config.hidden_size, (self.config.vocab_size, 2))
+        self.dropout = nn.Dropout(hidden_dropout_prob)
+        self.num_labels = vocab_size
+        self.classifier = nn.Linear(hidden_size, vocab_size)
         self.apply(self.init_bert_weights)
 
     def forward(self, input_ids, token_type_ids=None, attention_mask=None, labels=None):
         _, pooled_output = self.bert(input_ids, token_type_ids, attention_mask, output_all_encoded_layers=False)
         pooled_output = self.dropout(pooled_output)
         logits = self.classifier(pooled_output)
-
+        sigmoid_outputs = torch.sigmoid(logits)
         if labels is not None:
-            loss_fct = CrossEntropyLoss()
-            loss = loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
+            # loss_fct = CrossEntropyLoss()
+            loss_fn = torch.nn.BCELoss()
+            labels = labels.float()
+            loss = loss_fn(sigmoid_outputs.view(-1, self.num_labels), labels)
             return loss
         else:
             return logits

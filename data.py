@@ -93,6 +93,11 @@ class DataGenerator(object):
                     print("query: {}".format(query))
                     print("doc: {}".format(doc))
                 self.data.append([label, query, doc])
+        elif self.data_format == "doc2query":
+            self.f = open(os.path.join(data_path, "{}/{}.tsv".format(data_name, split)))
+            for l in self.f:
+                qid, docid, query, document = l.replace("\n", "").split("\t")
+                self.data.append([qid, docid, query, document])
         else:
             self.f = open(os.path.join(data_path, "{}/{}_{}.csv".format(data_name, data_name, split)))
             first = True
@@ -151,6 +156,15 @@ class DataGenerator(object):
         indexed_tokens = self.tokenizer.convert_tokens_to_ids(tokenized_text)
         return indexed_tokens, segments_ids
 
+    def query2label(self, q):
+        q_index = np.array(self.tokenize_index(q))
+        label = np.zeros(len(self.tokenizer.vocab), dtype=float)
+        label[q_index] = 1
+        return label
+
+    def ids2tokens(self, i):
+        return self.tokenizer.convert_ids_to_tokens(i)
+
     def load_batch(self):
         if self.data_format == "ontonote":
             return self.load_batch_seqlabeling()
@@ -207,6 +221,13 @@ class DataGenerator(object):
                 combine_index = self.tokenize_index(text)
                 qid_batch.append(int(rid))
                 segments_ids = [0] * len(combine_index)
+            elif self.data_format == "doc2query":  # single sentence classification
+                qid, docid, query, document = instance
+                combine_index = self.tokenize_index(document)
+                qid_batch.append(int(qid))
+                segments_ids = [0] * len(combine_index)
+                label = self.query2label(query)
+                docid_batch.append(int(docid))
             else:  # sentence pair classification
                 if self.data_format == "robust04":
                     label, a, b, qid, docid = instance
@@ -239,6 +260,8 @@ class DataGenerator(object):
             mask_batch.append(torch.ones(len(combine_index)))
             if self.data_format == "glue" or self.data_format == "regression":
                 label_batch.append(float(label))
+            elif self.data_format == "doc2query":
+                label_batch.append(label)
             else:
                 label_batch.append(int(label))
             if len(test_batch) >= self.batch_size or self.epoch_end():

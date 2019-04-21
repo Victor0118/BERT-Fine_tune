@@ -2,7 +2,7 @@ import torch
 
 from pytorch_pretrained_bert import BertTokenizer, BertModel, BertForMaskedLM, BertForSequenceClassification, BertForNextSentencePrediction, BertForTokenClassification
 from pytorch_pretrained_bert.optimization import BertAdam
-from model import BertMSE
+from model import BertMSE, BertForDoc2Query
 
 def load_pretrained_model_tokenizer(model_type="BertForSequenceClassification", device="cuda", chinese=False, num_labels=2):
     # Load pre-trained model (weights)
@@ -10,6 +10,8 @@ def load_pretrained_model_tokenizer(model_type="BertForSequenceClassification", 
         base_model = "bert-base-chinese"
     else:
         base_model = "bert-base-uncased"
+    tokenizer = BertTokenizer.from_pretrained(base_model)
+
     if model_type == "BertForSequenceClassification":
         model = BertForSequenceClassification.from_pretrained(base_model, num_labels=num_labels)
         # Load pre-trained model tokenizer (vocabulary)
@@ -19,11 +21,12 @@ def load_pretrained_model_tokenizer(model_type="BertForSequenceClassification", 
         model = BertForTokenClassification.from_pretrained(base_model, num_labels=num_labels)
     elif model_type == "BertMSE":
         model = BertMSE()
+    elif model_type == "BertForDoc2Query":
+        model = BertForDoc2Query(len(tokenizer.vocab))
     else:
         print("[Error]: unsupported model type")
         return None, None
     
-    tokenizer = BertTokenizer.from_pretrained(base_model)
     model.to(device)
     return model, tokenizer
 

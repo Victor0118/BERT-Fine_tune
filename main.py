@@ -160,6 +160,15 @@ def test(args, split="test", model=None, tokenizer=None, test_dataset=None):
             for p, l, s, qid, docid in zip(predicted_index, label_batch, scores, qids, docids):
                 f.write("{} Q0 {} {} {} bert {}\n".format(qid, docid, lineno, s[1], l))
                 lineno += 1
+        elif args.data_format == "doc2query":
+            qids = qid_tensor.cpu().detach().numpy()
+            docids = docid_tensor.cpu().detach().numpy()
+            assert len(qids) == len(predicted_index)
+            for l, s, qid, docid in zip(label_batch, scores, qids, docids):
+                label = test_dataset.ids2tokens(l)
+                kmax_index = s.argsort()[-args.K:][::-1]
+                query = test_dataset.ids2tokens(kmax_index)
+                f.write("{}\t{}\t{}\t{}\n".format(qid, docid, lineno, s[1], l))
         else:
             if qid_tensor is None:
                 qids = list(range(lineno, lineno + len(label_batch)))
@@ -215,6 +224,7 @@ if __name__ == '__main__':
     parser.add_argument('--output_path2', default='predict.trec', help='')
     parser.add_argument('--qrels_path', default='qrels.trec', help='')
     parser.add_argument('--num_labels', default=2, type=int, help='')
+    parser.add_argument('--K', default=1, type=int, help='top K words for doc2query generation')
     parser.add_argument('--data_format', default='classification', help='[classification, trec, tweet]')
     parser.add_argument('--warmup_proportion', default=0.1, type=float,
                         help='Proportion of training to perform linear learning rate warmup. E.g., 0.1 = 10%% of training.')
