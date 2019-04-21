@@ -199,6 +199,8 @@ def test(args, split="test", model=None, tokenizer=None, test_dataset=None):
         return [["pearson_r", "spearman_r"], [pearson_r, spearman_r]]
     elif args.data_format == "ontonote":
         acc, pre, rec, f1 = evaluate_ner(prediction_index_list, labels, test_dataset.label_map)
+    elif args.data_format == "doc2query":
+        return [["acc"], [0]]
     else:
         acc, pre, rec, f1 = evaluate_classification(prediction_index_list, labels)
     return [["f1", "acc", "precision", "recall"], [f1, acc, pre, rec]]
