@@ -1,6 +1,8 @@
 import os
 import numpy as np
 
+import nltk
+from nltk.corpus import stopwords
 import torch
 
 
@@ -127,6 +129,7 @@ class DataGenerator(object):
         self.device = device
         self.tokenizer = tokenizer
         self.start = True
+        self.stop_words = set(stopwords.words('english')) 
 
     def get_instance(self):
         ret = self.data[self.data_i % self.data_size]
@@ -158,7 +161,12 @@ class DataGenerator(object):
         return indexed_tokens, segments_ids
 
     def query2label(self, q):
-        q_index = np.array(self.tokenize_index(q, pad=False))
+        # q_index = np.array(self.tokenize_index(q, pad=False))
+        tokenized_text = self.tokenizer.tokenize(q)
+        filtered_tokens = [w for w in tokenized_text if not w in self.stop_words]
+        if len(filtered_tokens) == 0:
+            return None
+        q_index = self.tokenizer.convert_tokens_to_ids(filtered_tokens)
         label = np.zeros(len(self.tokenizer.vocab), dtype=float)
         label[q_index] = 1
         return label
@@ -232,6 +240,8 @@ class DataGenerator(object):
                 qid_batch.append(int(qid))
                 segments_ids = [0] * len(combine_index)
                 label = self.query2label(query)
+                if label is None:
+                    continue
                 docid_batch.append(int(docid))
             else:  # sentence pair classification
                 if self.data_format == "robust04":
