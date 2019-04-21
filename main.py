@@ -167,8 +167,8 @@ def test(args, split="test", model=None, tokenizer=None, test_dataset=None):
             for l, s, qid, docid in zip(label_batch, scores, qids, docids):
                 label = test_dataset.ids2tokens(l)
                 kmax_index = s.argsort()[-args.K:][::-1]
-                query = test_dataset.ids2tokens(kmax_index)
-                f.write("{}\t{}\t{}\t{}\n".format(qid, docid, lineno, s[1], l))
+                prediction_tokens = test_dataset.ids2tokens(kmax_index)
+                f.write("{}\t{}\t{}\t{}\n".format(qid, docid, " ".join(label), " ".join(prediction_tokens)))
         else:
             if qid_tensor is None:
                 qids = list(range(lineno, lineno + len(label_batch)))
@@ -200,7 +200,8 @@ def test(args, split="test", model=None, tokenizer=None, test_dataset=None):
     elif args.data_format == "ontonote":
         acc, pre, rec, f1 = evaluate_ner(prediction_index_list, labels, test_dataset.label_map)
     elif args.data_format == "doc2query":
-        return [["acc"], [0]]
+        acc, pre, rec, f1 = evaluate_doc2query(args.output_path)
+        return [["f1", "acc", "precision", "recall"], [f1, acc, pre, rec]]
     else:
         acc, pre, rec, f1 = evaluate_classification(prediction_index_list, labels)
     return [["f1", "acc", "precision", "recall"], [f1, acc, pre, rec]]

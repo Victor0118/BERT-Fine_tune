@@ -23,6 +23,29 @@ def evaluate_ner(prediction_index_list, labels, label_map):
     print("evaluating {} sentences".format(len(prediction_index_list)))
     return get_ner_fmeasure(prediction_index_list, labels)
 
+def evaluate_doc2query(fn):
+    f = open(fn)
+    precisions = []
+    recalls = []
+    f1s = []
+    total = 0
+    for l in f:
+        precision, recall, f1 = 0, 0, 0
+        qid, docid, label_tokens, prediction_tokens = l.replace("\n", "").split("\t")
+        total += 1
+        for lt in label_tokens:
+            if lt in prediction_tokens:
+                recall += 1
+        recall /= len(label_tokens)
+        for pt in prediction_tokens:
+            if pt in label_tokens:
+                precision += 1
+        precision /= len(prediction_tokens)
+        f1 = 2.0 * recall * precision / (precision + recall + 1e-8)
+        precisions.append(precision)
+        recalls.append(recall)
+        f1s.append(f1)
+    return sum(precisions) / total, sum(recalls) / total, sum(f1s) / total
 
 def evaluate_trec(predictions_file, qrels_file):
     cmd = "eval/trec_eval.9.0.4/trec_eval {judgement} {output} -m map -m recip_rank -m P.30".format(
