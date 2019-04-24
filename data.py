@@ -96,7 +96,7 @@ class DataGenerator(object):
                     print("doc: {}".format(doc))
                 self.data.append([label, query, doc])
         elif self.data_format == "doc2query":
-            self.f = open(os.path.join(data_path, "{}/{}.tsv".format(data_name, split)))
+            self.f = open(os.path.join(data_path, "{}/{}_sample.tsv".format(data_name, split)))
             for l in self.f:
                 qid, docid, query, document = l.replace("\n", "").split("\t")
                 self.data.append([qid, docid, query, document])

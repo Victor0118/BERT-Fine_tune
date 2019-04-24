@@ -22,7 +22,7 @@ def load_pretrained_model_tokenizer(model_type="BertForSequenceClassification", 
     elif model_type == "BertMSE":
         model = BertMSE()
     elif model_type == "BertForDoc2Query":
-        model = BertForDoc2Query(len(tokenizer.vocab))
+        model = BertForDoc2Query(len(tokenizer.vocab), device=device)
     else:
         print("[Error]: unsupported model type")
         return None, None

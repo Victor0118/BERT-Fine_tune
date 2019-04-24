@@ -1,4 +1,6 @@
 import copy
+import numpy as np
+import json
 
 import torch
 import torch.nn as nn
@@ -74,7 +76,7 @@ class BertForDoc2Query(BertPreTrainedModel):
     logits = model(input_ids, token_type_ids, input_mask)
     ```
     """
-    def __init__(self, vocab_size, hidden_size=768, hidden_dropout_prob=0.1):
+    def __init__(self, vocab_size, hidden_size=768, hidden_dropout_prob=0.1, device=0):
         config = BertConfig.from_dict({"vocab_size": vocab_size, "hidden_size": hidden_size, "hidden_dropout_prob": hidden_dropout_prob})
         super(BertForDoc2Query, self).__init__(config)
         self.bert = BertModel(config)
@@ -82,17 +84,27 @@ class BertForDoc2Query(BertPreTrainedModel):
         self.num_labels = vocab_size
         self.classifier = nn.Linear(hidden_size, vocab_size)
         self.apply(self.init_bert_weights)
+        self.load_docfreq("docfreq_sample.json", device)    
+
+    def load_docfreq(self, fn, device):
+        docfreq = json.load(open(fn))
+        for i in range(len(docfreq)):
+            if docfreq[i] == 0:
+                docfreq[i] = 10    
+        self.idf = torch.tensor(1.0 / np.array(docfreq)).double().to(device)
+        print(self.idf)
 
     def forward(self, input_ids, token_type_ids=None, attention_mask=None, labels=None):
         _, pooled_output = self.bert(input_ids, token_type_ids, attention_mask, output_all_encoded_layers=False)
         pooled_output = self.dropout(pooled_output)
         logits = self.classifier(pooled_output)
-        sigmoid_outputs = torch.sigmoid(logits)
+        # sigmoid_outputs = torch.sigmoid(logits)
         if labels is not None:
             # loss_fct = CrossEntropyLoss()
-            loss_fn = torch.nn.BCELoss()
-            labels = labels.float()
-            loss = loss_fn(sigmoid_outputs.view(-1, self.num_labels), labels)
+            # loss_fn = torch.nn.BCELoss()
+            loss_fn = torch.nn.BCEWithLogitsLoss(pos_weight=self.idf)
+            # labels = labels.float()
+            loss = loss_fn(logits.view(-1, self.num_labels), labels) 
             return loss
         else:
             return logits
