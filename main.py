@@ -1,4 +1,5 @@
 import random
+import json
 import numpy as np
 import argparse
 
@@ -39,29 +40,30 @@ def train(args):
         print("epoch {} ............".format(epoch))
         tr_loss = 0
         # random.shuffle(train_dataset)
+        logits_total = []
         while True:
-            batch = train_dataset.load_batch()
-            if batch is None:
-                break
-            tokens_tensor, segments_tensor, mask_tensor, label_tensor = batch[:4]
-            loss = model(tokens_tensor, segments_tensor, mask_tensor, label_tensor)
-            loss.backward()
-            tr_loss += loss.item()
-            optimizer.step()
-            model.zero_grad()
-            global_step += 1
-
             if args.eval_steps > 0 and step % args.eval_steps == 0:
                 print("step: {}".format(step))
                 best_score = eval_select(model, tokenizer, validate_dataset, test_dataset, args.pytorch_dump_path,
                                          best_score, epoch, args.model_type)
 
+            batch = train_dataset.load_batch()
+            if batch is None:
+                break
+            tokens_tensor, segments_tensor, mask_tensor, label_tensor = batch[:4]
+            logits, loss = model(tokens_tensor, segments_tensor, mask_tensor, label_tensor)
+            logits_total.extend(logits.tolist())
+            loss.backward()
+            tr_loss += loss.item()
+            optimizer.step()
+            model.zero_grad()
+            global_step += 1
             step += 1
 
         print("[train] loss: {}".format(tr_loss))
         best_score = eval_select(model, tokenizer, validate_dataset, test_dataset, args.pytorch_dump_path, best_score,
                                  epoch, args.model_type)
-
+        json.dump(logits_total, open("logits_total_{}.json".format(epoch), "w"))
     scores = test(args, split="test")
     print_scores(scores)
 
@@ -75,7 +77,7 @@ def eval_select(model, tokenizer, validate_dataset, test_dataset, model_path, be
     if scores_dev[1][0] > best_score:
         best_score = scores_dev[1][0]
         # Save pytorch-model
-        model_path = "{}_{}".format(model_path, epoch)
+        #model_path = "{}_{}".format(model_path, epoch)
         print("Save PyTorch model to {}".format(model_path))
         save_checkpoint(epoch, arch, model, tokenizer, scores_dev, model_path, test_dataset.label_map)
 
