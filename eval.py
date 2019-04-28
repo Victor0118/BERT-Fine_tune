@@ -24,7 +24,7 @@ def evaluate_ner(prediction_index_list, labels, label_map):
     return get_ner_fmeasure(prediction_index_list, labels)
 
 def evaluate_doc2query(fn):
-    f = open(fn)
+    f = open(fn,'r', encoding='utf-8')
     precisions = []
     recalls = []
     f1s = []

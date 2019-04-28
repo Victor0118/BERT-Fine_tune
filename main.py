@@ -22,12 +22,19 @@ def train(args):
     else:
         model, tokenizer = load_pretrained_model_tokenizer(args.model_type, device=args.device, chinese=args.chinese,
                                                            num_labels=args.num_labels)
-    train_dataset = DataGenerator(args.data_path, args.data_name, args.batch_size, tokenizer, "train", args.device,
-                                  args.data_format)
+    if args.filename == None:
+        train_dataset = DataGenerator(args.data_path, args.data_name, args.batch_size, tokenizer, "train", args.device,
+                                      args.data_format)
+        query_to_idf = train_dataset.query_to_idf
+    else:
+        with open(args.filename) as infile:
+            query_to_idf = json.load(infile)
+        train_dataset = DataGenerator(args.data_path, args.data_name, args.batch_size, tokenizer, "train", args.device,
+                                      args.data_format, query_to_idf=query_to_idf)           
     validate_dataset = DataGenerator(args.data_path, args.data_name, args.batch_size, tokenizer, "dev", args.device,
-                                     args.data_format, label_map=train_dataset.label_map)
+                                     args.data_format, label_map=train_dataset.label_map, query_to_idf=query_to_idf)
     test_dataset = DataGenerator(args.data_path, args.data_name, args.batch_size, tokenizer, "test", args.device,
-                                 args.data_format, label_map=train_dataset.label_map)
+                                 args.data_format, label_map=train_dataset.label_map, query_to_idf=query_to_idf)
     optimizer = init_optimizer(model, args.learning_rate, args.warmup_proportion, args.num_train_epochs,
                                train_dataset.data_size, args.batch_size)
 
@@ -43,8 +50,8 @@ def train(args):
             batch = train_dataset.load_batch()
             if batch is None:
                 break
-            tokens_tensor, segments_tensor, mask_tensor, label_tensor = batch[:4]
-            loss = model(tokens_tensor, segments_tensor, mask_tensor, label_tensor)
+            bias_tensor, tokens_tensor, segments_tensor, mask_tensor, label_tensor = batch[:5]
+            loss = model(bias_tensor, tokens_tensor, segments_tensor, mask_tensor, label_tensor)
             loss.backward()
             tr_loss += loss.item()
             optimizer.step()
@@ -91,9 +98,9 @@ def test(args, split="test", model=None, tokenizer=None, test_dataset=None):
 
     model.eval()
     prediction_score_list, prediction_index_list, labels = [], [], []
-    f = open(args.output_path, "w")
-    f2 = open(args.output_path2, "w")
-    qrelf = open(split + '.' + args.qrels_path, "w")
+    f = open(args.output_path, "w", encoding='utf-8')
+    f2 = open(args.output_path2, "w",encoding='utf-8')
+    qrelf = open(split + '.' + args.qrels_path, "w", encoding='utf-8')
 
     lineno = 1
     label_map_reverse = {}
@@ -104,14 +111,14 @@ def test(args, split="test", model=None, tokenizer=None, test_dataset=None):
         batch = test_dataset.load_batch()
         if batch is None:
             break
-        if len(batch) == 6:
-            tokens_tensor, segments_tensor, mask_tensor, label_tensor, qid_tensor, docid_tensor = batch
-        elif len(batch) == 5:
-            tokens_tensor, segments_tensor, mask_tensor, label_tensor, qid_tensor = batch
+        if len(batch) == 7:
+            bias_tensor, tokens_tensor, segments_tensor, mask_tensor, label_tensor, qid_tensor, docid_tensor = batch
+        elif len(batch) == 6:
+            bias_tensor, tokens_tensor, segments_tensor, mask_tensor, label_tensor, qid_tensor = batch
         else:
-            tokens_tensor, segments_tensor, mask_tensor, label_tensor = batch
+            bias_tensor, tokens_tensor, segments_tensor, mask_tensor, label_tensor = batch
         # print(tokens_tensor.shape, segments_tensor.shape, mask_tensor.shape)
-        predictions = model(tokens_tensor, segments_tensor, mask_tensor)
+        predictions = model(bias_tensor, tokens_tensor, segments_tensor, mask_tensor)
         scores = predictions.cpu().detach().numpy()
         predicted_index = list(torch.argmax(predictions, dim=-1).cpu().numpy())
         if args.data_format == "glue" or args.data_format == "regression":
@@ -210,6 +217,7 @@ def test(args, split="test", model=None, tokenizer=None, test_dataset=None):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    parser.add_argument('--filename', default=None)
     parser.add_argument('--mode', default='train', help='[train, test]')
     parser.add_argument('--device', default='cuda', help='[cuda, cpu]')
     parser.add_argument('--batch_size', default=16, type=int, help='[1, 8, 16, 32]')

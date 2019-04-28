@@ -3,6 +3,7 @@ import copy
 import torch
 import torch.nn as nn
 from torch.nn import CrossEntropyLoss
+from torch.autograd import Variable
 
 from pytorch_pretrained_bert import BertModel
 from pytorch_pretrained_bert.modeling import BertPreTrainedModel,BertConfig
@@ -83,15 +84,17 @@ class BertForDoc2Query(BertPreTrainedModel):
         self.classifier = nn.Linear(hidden_size, vocab_size)
         self.apply(self.init_bert_weights)
 
-    def forward(self, input_ids, token_type_ids=None, attention_mask=None, labels=None):
+    def forward(self, bias, input_ids, token_type_ids=None, attention_mask=None, labels=None):
         _, pooled_output = self.bert(input_ids, token_type_ids, attention_mask, output_all_encoded_layers=False)
         pooled_output = self.dropout(pooled_output)
         logits = self.classifier(pooled_output)
+        logits = logits * bias
         sigmoid_outputs = torch.sigmoid(logits)
         if labels is not None:
             # loss_fct = CrossEntropyLoss()
             loss_fn = torch.nn.BCELoss()
             labels = labels.float()
+            # assert (sigmoid_outputs >= 0. & sigmoid_outputs.data <= 1.).all()
             loss = loss_fn(sigmoid_outputs.view(-1, self.num_labels), labels)
             return loss
         else:
