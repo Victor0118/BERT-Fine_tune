@@ -7,6 +7,7 @@ import torch
 from util import *
 from eval import *
 from data import DataGenerator
+import json
 
 RANDOM_SEED = 12345
 random.seed(RANDOM_SEED)

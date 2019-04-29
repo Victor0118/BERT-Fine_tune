@@ -119,6 +119,12 @@ class DataGenerator(object):
 					f_q = Counter(filtered_tokens)
 					self.count_vocab.update(f_q)
 
+		elif self.data_format == "doc":
+			self.f = open(os.path.join(data_path, "{}/{}.tsv".format(data_name, split)), encoding='utf-8')
+			for l in self.f:
+				docid, document = l.replace("\n", "").split("\t")
+				self.data.append([docid, document])
+
 		else:
 			self.f = open(os.path.join(data_path, "{}/{}_{}.csv".format(data_name, data_name, split)))
 			first = True
@@ -151,7 +157,7 @@ class DataGenerator(object):
 		# self.stop_words = set(stopwords.words('english')) 
 		self.all_words = list(self.tokenizer.vocab.keys())
 		if query_to_idf == None:
-			self.query_to_f = self.tokenizer.vocab.fromkeys(self.tokenizer.vocab, 0.001)
+			self.query_to_f = self.tokenizer.vocab.fromkeys(self.tokenizer.vocab, 1)
 			for d in all_train_docs:
 				tokenized_text = self.tokenizer.tokenize(d)
 				filtered_tokens = [w for w in tokenized_text if not w in self.stop_words]
@@ -162,7 +168,7 @@ class DataGenerator(object):
 					if w in self.count_vocab:
 						self.query_to_f[w] += 1
 			# self.query_to_idf = {w : self.query_to_f[w] for w in self.query_to_f}
-			self.query_to_idf = {w : log(len(all_train_docs) / self.query_to_f[w]) for w in self.query_to_f}
+			self.query_to_idf = {w : log(len(all_train_docs) / self.query_to_f[w]) if self.query_to_f[w] !=1 else self.query_to_f[w] for w in self.query_to_f}
 			with open('idf.json', 'w') as fp:
 				json.dump(self.query_to_idf, fp)
 		else:
@@ -282,6 +288,12 @@ class DataGenerator(object):
 				if label is None:
 					continue
 				docid_batch.append(int(docid))
+			elif self.data_format == "doc":  # single sentence classification
+				docid, document = instance
+				combine_index = self.tokenize_index(document)
+				segments_ids = [0] * len(combine_index)
+				bias = list(self.query_to_idf.values())
+				docid_batch.append(int(docid))
 			else:  # sentence pair classification
 				if self.data_format == "robust04":
 					label, a, b, qid, docid = instance
@@ -317,6 +329,8 @@ class DataGenerator(object):
 			elif self.data_format == "doc2query":
 				label_batch.append(label)
 				bias_batch.append(bias)
+			elif self.data_format == "doc":
+				bias_batch.append(bias)
 			else:
 				label_batch.append(int(label))
 			if len(test_batch) >= self.batch_size or self.epoch_end():
@@ -327,15 +341,21 @@ class DataGenerator(object):
 																  padding_value=0).to(self.device)
 				mask_tensor = torch.nn.utils.rnn.pad_sequence(mask_batch, batch_first=True, padding_value=0).to(
 					self.device)
-				label_tensor = torch.tensor(label_batch, device=self.device)
-				bias_tensor = torch.tensor(bias_batch, device=self.device).float()
-				if len(qid_batch) > 0:
-					qid_tensor = torch.tensor(qid_batch, device=self.device)
-					if len(docid_batch) > 0:
-						docid_tensor = torch.tensor(docid_batch, device=self.device)
-						return (bias_tensor, tokens_tensor, segments_tensor, mask_tensor, label_tensor, qid_tensor, docid_tensor)
-					return (bias_tensor, tokens_tensor, segments_tensor, mask_tensor, label_tensor, qid_tensor)
+				if self.data_format == "doc":
+					bias_tensor = torch.tensor(bias_batch, device=self.device).float()
+					docid_tensor = torch.tensor(docid_batch, device=self.device)
+					return (bias_tensor, tokens_tensor, segments_tensor, mask_tensor, docid_tensor)					
 				else:
-					return (bias_tensor, tokens_tensor, segments_tensor, mask_tensor, label_tensor)
+					label_tensor = torch.tensor(label_batch, device=self.device)
+					bias_tensor = torch.tensor(bias_batch, device=self.device).float()
+					if len(qid_batch) > 0:
+						qid_tensor = torch.tensor(qid_batch, device=self.device)
+						if len(docid_batch) > 0:
+							docid_tensor = torch.tensor(docid_batch, device=self.device)
+							return (bias_tensor, tokens_tensor, segments_tensor, mask_tensor, label_tensor, qid_tensor, docid_tensor)
+						return (bias_tensor, tokens_tensor, segments_tensor, mask_tensor, label_tensor, qid_tensor)
+					else:
+						return (bias_tensor, tokens_tensor, segments_tensor, mask_tensor, label_tensor)
+
 
 		return None
