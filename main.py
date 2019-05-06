@@ -19,7 +19,7 @@ if torch.cuda.is_available():
 
 def train(args):
     if args.load_trained:
-        epoch, arch, model, tokenizer, scores = load_checkpoint(args.pytorch_dump_path)
+        epoch, arch, model, tokenizer, scores, label_map = load_checkpoint(args.pytorch_dump_path)
     else:
         model, tokenizer = load_pretrained_model_tokenizer(args.model_type, device=args.device, chinese=args.chinese,
                                                            num_labels=args.num_labels)
@@ -40,7 +40,7 @@ def train(args):
         print("epoch {} ............".format(epoch))
         tr_loss = 0
         # random.shuffle(train_dataset)
-        logits_total = []
+        sampled = False
         while True:
             if args.eval_steps > 0 and step % args.eval_steps == 0:
                 print("step: {}".format(step))
@@ -52,7 +52,9 @@ def train(args):
                 break
             tokens_tensor, segments_tensor, mask_tensor, label_tensor = batch[:4]
             logits, loss = model(tokens_tensor, segments_tensor, mask_tensor, label_tensor)
-            logits_total.extend(logits.tolist())
+            if not sampled:
+                sampled = True
+                json.dump(logits.cpu().detach().numpy().tolist(), open("logits_total_{}.json".format(epoch), "w"))
             loss.backward()
             tr_loss += loss.item()
             optimizer.step()
@@ -63,7 +65,6 @@ def train(args):
         print("[train] loss: {}".format(tr_loss))
         best_score = eval_select(model, tokenizer, validate_dataset, test_dataset, args.pytorch_dump_path, best_score,
                                  epoch, args.model_type)
-        json.dump(logits_total, open("logits_total_{}.json".format(epoch), "w"))
     scores = test(args, split="test")
     print_scores(scores)
 
@@ -166,9 +167,14 @@ def test(args, split="test", model=None, tokenizer=None, test_dataset=None):
             qids = qid_tensor.cpu().detach().numpy()
             docids = docid_tensor.cpu().detach().numpy()
             assert len(qids) == len(predicted_index)
+            #debug = args.debug
             for l, s, qid, docid in zip(label_batch, scores, qids, docids):
                 label = test_dataset.labels2tokens(l)
                 label = [tmp for tmp in label if tmp != "[PAD]" and tmp != "[CLS]" and tmp != "[SEP]"]
+                #if debug:
+                #    debug = False
+                #    s2 = sorted(s)
+                #    print("top scores: {}, buttom scores: {}".format(s2[-args.K:][::-1], s2[:args.K]))
                 kmax_index = s.argsort()[-args.K:][::-1]
                 prediction_tokens = test_dataset.ids2tokens(kmax_index)
                 f.write("{}\t{}\t{}\t{}\n".format(qid, docid, " ".join(label), " ".join(prediction_tokens)))

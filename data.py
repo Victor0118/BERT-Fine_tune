@@ -96,7 +96,7 @@ class DataGenerator(object):
                     print("doc: {}".format(doc))
                 self.data.append([label, query, doc])
         elif self.data_format == "doc2query":
-            self.f = open(os.path.join(data_path, "{}/{}_sample.tsv".format(data_name, split)))
+            self.f = open(os.path.join(data_path, "{}/{}.tsv".format(data_name, split)))
             for l in self.f:
                 qid, docid, query, document = l.replace("\n", "").split("\t")
                 self.data.append([qid, docid, query, document])
@@ -159,11 +159,25 @@ class DataGenerator(object):
         # Convert token to vocabulary indices
         indexed_tokens = self.tokenizer.convert_tokens_to_ids(tokenized_text)
         return indexed_tokens, segments_ids
+    
+    def filter_query(self, q):
+        filtered_token = []
+        for w in q:
+            if w in self.stop_words:
+                continue
+            if "[unused" in w:
+                continue
+            if len(w) == 1:
+                continue
+            if "##" in w:
+                continue
+            filtered_token.append(w)
+        return filtered_token
 
     def query2label(self, q):
         # q_index = np.array(self.tokenize_index(q, pad=False))
         tokenized_text = self.tokenizer.tokenize(q)
-        filtered_tokens = [w for w in tokenized_text if not w in self.stop_words]
+        filtered_tokens = self.filter_query(tokenized_text)
         if len(filtered_tokens) == 0:
             return None
         q_index = self.tokenizer.convert_tokens_to_ids(filtered_tokens)
@@ -236,12 +250,12 @@ class DataGenerator(object):
                 segments_ids = [0] * len(combine_index)
             elif self.data_format == "doc2query":  # single sentence classification
                 qid, docid, query, document = instance
-                combine_index = self.tokenize_index(document)
-                qid_batch.append(int(qid))
-                segments_ids = [0] * len(combine_index)
                 label = self.query2label(query)
                 if label is None:
                     continue
+                combine_index = self.tokenize_index(document)
+                qid_batch.append(int(qid))
+                segments_ids = [0] * len(combine_index)
                 docid_batch.append(int(docid))
             else:  # sentence pair classification
                 if self.data_format == "robust04":

@@ -145,14 +145,14 @@ class BertForDoc2Query(BertPreTrainedModel):
         self.num_labels = vocab_size
         self.classifier = nn.Linear(hidden_size, vocab_size)
         self.apply(self.init_bert_weights)
-        self.load_docfreq("docfreq_sample.json", device)    
+        #self.load_docfreq("docfreq.json", device)    
 
     def load_docfreq(self, fn, device):
         docfreq = json.load(open(fn))
         for i in range(len(docfreq)):
             if docfreq[i] == 0:
-                docfreq[i] = 100    
-        self.idf = torch.tensor(10.0 / np.array(docfreq)).float().to(device)
+                docfreq[i] = 1000    
+        self.idf = torch.tensor(532761 / np.array(docfreq)).float().to(device).log()
         # docfreq = np.array(docfreq)
         #self.pos_weight = (20000 - docfreq) / docfreq
         #self.pos_weight = torch.tensor(self.pos_weight).float().to(device)
@@ -171,7 +171,7 @@ class BertForDoc2Query(BertPreTrainedModel):
             labels = labels.float()
             loss = loss_fn(logits.view(-1, self.num_labels), labels) 
             # print(loss.shape)
-            loss = torch.mean(loss * self.idf)
+            #loss = torch.mean(loss * self.idf)
             return logits, loss
         else:
             return logits
