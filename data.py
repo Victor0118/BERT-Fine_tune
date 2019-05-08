@@ -167,8 +167,8 @@ class DataGenerator(object):
                 for w in ft_q:
                     if w in self.count_vocab:
                         self.query_to_f[w] += 1
-            # self.query_to_idf = {w : self.query_to_f[w] for w in self.query_to_f}
-            self.query_to_idf = {w : log(len(all_train_docs) / self.query_to_f[w]) if self.query_to_f[w] !=1 else self.query_to_f[w] for w in self.query_to_f}
+            self.query_to_idf = {w : log(len(all_train_docs) / self.query_to_f[w]) for w in self.query_to_f}
+            # self.query_to_idf = {w : log(len(all_train_docs) / self.query_to_f[w]) if self.query_to_f[w] !=1 else self.query_to_f[w] for w in self.query_to_f}
             with open('idf.json', 'w') as fp:
                 json.dump(self.query_to_idf, fp)
         else:
@@ -188,8 +188,8 @@ class DataGenerator(object):
         if pad:
             tokenized_text.insert(0, "[CLS]")
             tokenized_text.append("[SEP]")
-            # Convert token to vocabulary indices
-            indexed_tokens = self.tokenizer.convert_tokens_to_ids(tokenized_text[:512])
+        # Convert token to vocabulary indices
+        indexed_tokens = self.tokenizer.convert_tokens_to_ids(tokenized_text[:512])
         return indexed_tokens
 
     def tokenize_two(self, a, b):
@@ -342,7 +342,7 @@ class DataGenerator(object):
                 mask_tensor = torch.nn.utils.rnn.pad_sequence(mask_batch, batch_first=True, padding_value=0).to(
                     self.device)
                 if self.data_format == "doc":
-                    bias_tensor = torch.tensor(bias_batch, device=self.device).float()
+                    bias_tensor = 3 * torch.tensor(bias_batch, device=self.device).float()
                     docid_tensor = torch.tensor(docid_batch, device=self.device)
                     return (bias_tensor, tokens_tensor, segments_tensor, mask_tensor, docid_tensor)                 
                 else:

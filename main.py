@@ -200,8 +200,8 @@ def test(args, split="test", model=None, tokenizer=None, test_dataset=None):
     model.train()
 
     if args.data_format == "trec":
-        map, mrr, p30 = evaluate_trec(predictions_file=args.output_path2, qrels_file="qrels.microblog.txt") #\
-                                      # qrels_file=split + '.' + args.qrels_path)
+        map, mrr, p30 = evaluate_trec(predictions_file=args.output_path2, \
+                                      qrels_file=split + '.' + args.qrels_path)
         return [["map", "mrr", "p30"], [map, mrr, p30]]
     elif args.data_format == "glue" or args.data_format == "regression":
         pearson_r, spearman_r = evaluate_glue(prediction_score_list, labels)
