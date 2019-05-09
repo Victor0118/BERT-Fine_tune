@@ -160,8 +160,8 @@ class DataGenerator(object):
             self.query_to_idf = {w : log(count / self.query_to_f[w]) for w in self.query_to_f}
             # self.query_to_idf = {w : log(len(all_train_docs) / self.query_to_f[w]) if self.query_to_f[w] !=1 else self.query_to_f[w] for w in self.query_to_f}
 
-            self.vocab = map(lambda x: x[0], sorted([(word, self.query_to_f[word]) for word in query_to_f if word not in stopwords \
-                                and word not in string.punctuation], key=lambda x: x[1], reverse=True))
+            self.vocab = [x[0] for x in sorted([(word, self.query_to_f[word]) for word in query_to_f if word not in stopwords \
+                                and word not in string.punctuation], key=lambda x: x[1], reverse=True)]
             self.token2id = {w: i for i, w in enumerate(self.vocab)}
             with open('vocab.json', 'w') as fp:
                 json.dump(self.query_to_idf, fp)
