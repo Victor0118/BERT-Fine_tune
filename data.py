@@ -152,7 +152,7 @@ class DataGenerator(object):
             for l in f:
                 qid, docid, query, doc = l.split("\t")
                 count += 1
-                for w in word_tokenize(query):
+                for w in set(word_tokenize(query)):
                     w = w.lower()
                     if w not in self.query_to_f:
                         self.query_to_f[w] = 0

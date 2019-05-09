@@ -24,16 +24,16 @@ def evaluate_ner(prediction_index_list, labels, label_map):
     print("evaluating {} sentences".format(len(prediction_index_list)))
     return get_ner_fmeasure(prediction_index_list, labels)
 
-def filter_query(self, q):
+def filter_query(q):
 	stopwords = ["a", "an", "and", "are", "as", "at", "be", "but", "by",\
 		  "for", "if", "in", "into", "is", "it",\
 		  "no", "not", "of", "on", "or", "such",\
 		  "that", "the", "their", "then", "there", "these",\
 		  "they", "this", "to", "was", "will", "with"]
-	# q_index = np.array(self.tokenize_index(q, pad=False))
 	q = q.lower()
 	tokenized_text = word_tokenize(q)
-	filtered_tokens = [w for w in tokenized_text if not w in stop_words and w not in string.punctuation]
+	stopwords = set(stopwords)
+	filtered_tokens = [w for w in tokenized_text if not w in stopwords and w not in string.punctuation]
 	return filtered_tokens
 
 def evaluate_doc2query(fn):
