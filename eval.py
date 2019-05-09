@@ -3,6 +3,8 @@ import numpy as np
 import subprocess
 import shlex
 from scipy.stats import pearsonr, spearmanr
+import string
+
 from nltk.tokenize import word_tokenize
 
 
