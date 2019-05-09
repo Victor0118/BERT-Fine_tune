@@ -2,7 +2,7 @@ import os
 import numpy as np
 
 import nltk
-from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
 import torch
 from collections import Counter
 from math import *
@@ -11,7 +11,7 @@ import json
 
 class DataGenerator(object):
     def __init__(self, data_path, data_name, batch_size, tokenizer, split, device="cuda", data_format="trec",
-                 add_url=False, label_map=None, query_to_idf=None):
+                 add_url=False, label_map=None, vocab=None):
         super(DataGenerator, self).__init__()
 
         if split == "train":
@@ -19,7 +19,6 @@ class DataGenerator(object):
             all_train_docs = []
         self.data = []
         self.tokenizer = tokenizer
-        self.stop_words = set(stopwords.words('english')) 
         self.data_format = data_format
         self.label_map = {} if label_map is None else label_map
         if data_format == "trec":
@@ -109,15 +108,6 @@ class DataGenerator(object):
             for l in self.f:
                 qid, docid, query, document = l.replace("\n", "").split("\t")
                 self.data.append([qid, docid, query, document])
-                # ##########
-                if split == 'train':
-                    all_train_docs.append(document)
-                    tokenized_text = self.tokenizer.tokenize(query)
-                    filtered_tokens = [w for w in tokenized_text if not w in self.stop_words]
-                    if len(filtered_tokens) == 0:
-                        continue
-                    f_q = Counter(filtered_tokens)
-                    self.count_vocab.update(f_q)
 
         elif self.data_format == "doc":
             self.f = open(os.path.join(data_path, "{}/{}.tsv".format(data_name, split)), encoding='utf-8')
@@ -155,25 +145,36 @@ class DataGenerator(object):
         # self.tokenizer = tokenizer
         self.start = True
         # self.stop_words = set(stopwords.words('english')) 
-        self.all_words = list(self.tokenizer.vocab.keys())
-        if query_to_idf == None:
-            self.query_to_f = self.tokenizer.vocab.fromkeys(self.tokenizer.vocab, 1)
-            for d in all_train_docs:
-                tokenized_text = self.tokenizer.tokenize(d)
-                filtered_tokens = [w for w in tokenized_text if not w in self.stop_words]
-                if len(filtered_tokens) == 0:
-                    continue
-                ft_q = Counter(filtered_tokens) 
-                for w in ft_q:
-                    if w in self.count_vocab:
-                        self.query_to_f[w] += 1
-            self.query_to_idf = {w : log(len(all_train_docs) / self.query_to_f[w]) for w in self.query_to_f}
+        if vocab is None:
+            self.query_to_f = {}
+            f = open("data/msmarco/train.tsv")
+            count = 0
+            for l in f:
+                qid, docid, query, doc = l.split("\t")
+                count += 1
+                for w in word_tokenize(query):
+                    w = w.lower()
+                    if w not in wfreq:
+                        self.query_to_f[w] = 0
+                    self.query_to_f[w] += 1
+            self.query_to_idf = {w : log(count / self.query_to_f[w]) for w in self.query_to_f}
             # self.query_to_idf = {w : log(len(all_train_docs) / self.query_to_f[w]) if self.query_to_f[w] !=1 else self.query_to_f[w] for w in self.query_to_f}
-            with open('idf.json', 'w') as fp:
+
+            self.vocab = map(lambda x: x[0], sorted([(word, self.query_to_f[word]) for word in query_to_f if word not in stopwords \
+                                and word not in string.punctuation], key=lambda x: x[1], reverse=True))
+            self.token2id = {w: i for i, w in enumerate(self.vocab)}
+            with open('vocab.json', 'w') as fp:
                 json.dump(self.query_to_idf, fp)
         else:
-            self.query_to_idf = query_to_idf
-        # self.all_words = list(self.query_to_idf.keys()
+            self.vocab = vocab
+            self.token2id = {w: i for i, w in enumerate(self.vocab)}
+        # self.token2id.json = json.load(open("token2id.json"))
+        # self.bias = [self.query_to_idf[w] for w in self.all_words]
+        self.stop_words = ["a", "an", "and", "are", "as", "at", "be", "but", "by",\
+                          "for", "if", "in", "into", "is", "it",\
+                          "no", "not", "of", "on", "or", "such",\
+                          "that", "the", "their", "then", "there", "these",\
+                          "they", "this", "to", "was", "will", "with"] 
 
     def get_instance(self):
         ret = self.data[self.data_i % self.data_size]
@@ -206,22 +207,21 @@ class DataGenerator(object):
 
     def query2label(self, q):
         # q_index = np.array(self.tokenize_index(q, pad=False))
-        tokenized_text = self.tokenizer.tokenize(q)
+        tokenized_text = word_tokenize(q)
         filtered_tokens = [w for w in tokenized_text if not w in self.stop_words]
-        if len(filtered_tokens) == 0:
-            return None, None
-        q_index = self.tokenizer.convert_tokens_to_ids(filtered_tokens)
-        label = np.zeros(len(self.tokenizer.vocab), dtype=float)
+        q_index = [self.token2id[t.lower()] for t in filtered_tokens if t.lower() in self.token2id]
+        if len(q_index) == 0:
+            return None
+        label = np.zeros(len(self.token2id), dtype=float)
         label[q_index] = 1
-        bias = list(self.query_to_idf.values())
-        return label, bias
+        return label
 
     def labels2tokens(self, i):
         ii = np.where(i == 1)[0]
         return self.ids2tokens(ii)
 
-    def ids2tokens(self, i):
-        return self.tokenizer.convert_ids_to_tokens(i)
+    def ids2tokens(self, ids):
+        return [self.vocab[i] for i in ids]
 
     def load_batch(self):
         if self.data_format == "ontonote":
@@ -281,18 +281,17 @@ class DataGenerator(object):
                 segments_ids = [0] * len(combine_index)
             elif self.data_format == "doc2query":  # single sentence classification
                 qid, docid, query, document = instance
-                combine_index = self.tokenize_index(document)
-                qid_batch.append(int(qid))
-                segments_ids = [0] * len(combine_index)
-                label, bias = self.query2label(query)
+                label = self.query2label(query)
                 if label is None:
                     continue
+                combine_index = self.tokenize_index(document)
+                segments_ids = [0] * len(combine_index)
+                qid_batch.append(int(qid))
                 docid_batch.append(int(docid))
             elif self.data_format == "doc":  # single sentence classification
                 docid, document = instance
                 combine_index = self.tokenize_index(document)
                 segments_ids = [0] * len(combine_index)
-                bias = list(self.query_to_idf.values())
                 docid_batch.append(int(docid))
             else:  # sentence pair classification
                 if self.data_format == "robust04":
@@ -328,9 +327,8 @@ class DataGenerator(object):
                 label_batch.append(float(label))
             elif self.data_format == "doc2query":
                 label_batch.append(label)
-                bias_batch.append(bias)
             elif self.data_format == "doc":
-                bias_batch.append(bias)
+                pass
             else:
                 label_batch.append(int(label))
             if len(test_batch) >= self.batch_size or self.epoch_end():
@@ -342,20 +340,18 @@ class DataGenerator(object):
                 mask_tensor = torch.nn.utils.rnn.pad_sequence(mask_batch, batch_first=True, padding_value=0).to(
                     self.device)
                 if self.data_format == "doc":
-                    bias_tensor = 3 * torch.tensor(bias_batch, device=self.device).float()
                     docid_tensor = torch.tensor(docid_batch, device=self.device)
-                    return (bias_tensor, tokens_tensor, segments_tensor, mask_tensor, docid_tensor)                 
+                    return (tokens_tensor, segments_tensor, mask_tensor, docid_tensor)                 
                 else:
                     label_tensor = torch.tensor(label_batch, device=self.device)
-                    bias_tensor = torch.tensor(bias_batch, device=self.device).float()
                     if len(qid_batch) > 0:
                         qid_tensor = torch.tensor(qid_batch, device=self.device)
                         if len(docid_batch) > 0:
                             docid_tensor = torch.tensor(docid_batch, device=self.device)
-                            return (bias_tensor, tokens_tensor, segments_tensor, mask_tensor, label_tensor, qid_tensor, docid_tensor)
-                        return (bias_tensor, tokens_tensor, segments_tensor, mask_tensor, label_tensor, qid_tensor)
+                            return (tokens_tensor, segments_tensor, mask_tensor, label_tensor, qid_tensor, docid_tensor)
+                        return (tokens_tensor, segments_tensor, mask_tensor, label_tensor, qid_tensor)
                     else:
-                        return (bias_tensor, tokens_tensor, segments_tensor, mask_tensor, label_tensor)
+                        return (tokens_tensor, segments_tensor, mask_tensor, label_tensor)
 
 
         return None

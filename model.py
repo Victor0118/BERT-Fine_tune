@@ -1,4 +1,5 @@
 import copy
+import json
 
 import torch
 import torch.nn as nn
@@ -75,7 +76,7 @@ class BertForDoc2Query(BertPreTrainedModel):
     logits = model(input_ids, token_type_ids, input_mask)
     ```
     """
-    def __init__(self, vocab_size, hidden_size=768, hidden_dropout_prob=0.1):
+    def __init__(self, vocab_size, hidden_size=768, hidden_dropout_prob=0.1, device=0):
         config = BertConfig.from_dict({"vocab_size": vocab_size, "hidden_size": hidden_size, "hidden_dropout_prob": hidden_dropout_prob})
         super(BertForDoc2Query, self).__init__(config)
         self.bert = BertModel(config)
@@ -83,12 +84,13 @@ class BertForDoc2Query(BertPreTrainedModel):
         self.num_labels = vocab_size
         self.classifier = nn.Linear(hidden_size, vocab_size)
         self.apply(self.init_bert_weights)
+        self.bias = torch.tensor(json.load(open("bias.json"))).float().to(device)
 
-    def forward(self, bias, input_ids, token_type_ids=None, attention_mask=None, labels=None):
+    def forward(self, input_ids, token_type_ids=None, attention_mask=None, labels=None):
         _, pooled_output = self.bert(input_ids, token_type_ids, attention_mask, output_all_encoded_layers=False)
         pooled_output = self.dropout(pooled_output)
         logits = self.classifier(pooled_output)
-        logits = logits * bias
+        logits = logits * self.bias
         sigmoid_outputs = torch.sigmoid(logits)
         if labels is not None:
             # loss_fct = CrossEntropyLoss()
