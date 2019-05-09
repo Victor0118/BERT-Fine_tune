@@ -19,7 +19,7 @@ if torch.cuda.is_available():
 
 def train(args):
     if args.load_trained:
-        epoch, arch, model, tokenizer, scores = load_checkpoint(args.pytorch_dump_path)
+        epoch, arch, model, tokenizer, scores, label_map = load_checkpoint(args.pytorch_dump_path)
     else:
         model, tokenizer = load_pretrained_model_tokenizer(args.model_type, device=args.device, chinese=args.chinese,
                                                            num_labels=args.num_labels)
@@ -83,7 +83,7 @@ def eval_select(model, tokenizer, validate_dataset, test_dataset, model_path, be
     if scores_dev[1][0] > best_score:
         best_score = scores_dev[1][0]
         # Save pytorch-model
-        model_path = "{}_{}".format(model_path, epoch)
+        model_path = "{}".format(model_path)
         print("Save PyTorch model to {}".format(model_path))
         save_checkpoint(epoch, arch, model, tokenizer, scores_dev, model_path, test_dataset.label_map)
 
