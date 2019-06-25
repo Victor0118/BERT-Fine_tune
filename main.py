@@ -19,23 +19,23 @@ if torch.cuda.is_available():
 
 def train(args):
     if args.load_trained:
-        epoch, arch, model, tokenizer, scores = load_checkpoint(args.pytorch_dump_path)
+        epoch, arch, model, tokenizer, scores, label_map = load_checkpoint(args.pytorch_dump_path)
     else:
         model, tokenizer = load_pretrained_model_tokenizer(args.model_type, device=args.device, chinese=args.chinese,
                                                            num_labels=args.num_labels)
     if args.filename == None:
         train_dataset = DataGenerator(args.data_path, args.data_name, args.batch_size, tokenizer, "train", args.device,
                                       args.data_format)
-        query_to_idf = train_dataset.query_to_idf
+        vocab = train_dataset.vocab
     else:
         with open(args.filename) as infile:
-            query_to_idf = json.load(infile)
+            vocab = json.load(infile)
         train_dataset = DataGenerator(args.data_path, args.data_name, args.batch_size, tokenizer, "train", args.device,
-                                      args.data_format, query_to_idf=query_to_idf)           
+                                      args.data_format, vocab=vocab)           
     validate_dataset = DataGenerator(args.data_path, args.data_name, args.batch_size, tokenizer, "dev", args.device,
-                                     args.data_format, label_map=train_dataset.label_map, query_to_idf=query_to_idf)
+                                     args.data_format, label_map=train_dataset.label_map, vocab=vocab)
     test_dataset = DataGenerator(args.data_path, args.data_name, args.batch_size, tokenizer, "test", args.device,
-                                 args.data_format, label_map=train_dataset.label_map, query_to_idf=query_to_idf)
+                                 args.data_format, label_map=train_dataset.label_map, vocab=vocab)
     optimizer = init_optimizer(model, args.learning_rate, args.warmup_proportion, args.num_train_epochs,
                                train_dataset.data_size, args.batch_size)
 
@@ -51,8 +51,8 @@ def train(args):
             batch = train_dataset.load_batch()
             if batch is None:
                 break
-            bias_tensor, tokens_tensor, segments_tensor, mask_tensor, label_tensor = batch[:5]
-            loss = model(bias_tensor, tokens_tensor, segments_tensor, mask_tensor, label_tensor)
+            tokens_tensor, segments_tensor, mask_tensor, label_tensor = batch[:4]
+            loss = model(tokens_tensor, segments_tensor, mask_tensor, label_tensor)
             loss.backward()
             tr_loss += loss.item()
             optimizer.step()
@@ -83,7 +83,7 @@ def eval_select(model, tokenizer, validate_dataset, test_dataset, model_path, be
     if scores_dev[1][0] > best_score:
         best_score = scores_dev[1][0]
         # Save pytorch-model
-        model_path = "{}_{}".format(model_path, epoch)
+        model_path = "{}".format(model_path)
         print("Save PyTorch model to {}".format(model_path))
         save_checkpoint(epoch, arch, model, tokenizer, scores_dev, model_path, test_dataset.label_map)
 
@@ -112,14 +112,14 @@ def test(args, split="test", model=None, tokenizer=None, test_dataset=None):
         batch = test_dataset.load_batch()
         if batch is None:
             break
-        if len(batch) == 7:
-            bias_tensor, tokens_tensor, segments_tensor, mask_tensor, label_tensor, qid_tensor, docid_tensor = batch
-        elif len(batch) == 6:
-            bias_tensor, tokens_tensor, segments_tensor, mask_tensor, label_tensor, qid_tensor = batch
+        if len(batch) == 6:
+            tokens_tensor, segments_tensor, mask_tensor, label_tensor, qid_tensor, docid_tensor = batch
+        elif len(batch) == 5:
+            tokens_tensor, segments_tensor, mask_tensor, label_tensor, qid_tensor = batch
         else:
-            bias_tensor, tokens_tensor, segments_tensor, mask_tensor, label_tensor = batch
+            tokens_tensor, segments_tensor, mask_tensor, label_tensor = batch
         # print(tokens_tensor.shape, segments_tensor.shape, mask_tensor.shape)
-        predictions = model(bias_tensor, tokens_tensor, segments_tensor, mask_tensor)
+        predictions = model(tokens_tensor, segments_tensor, mask_tensor)
         scores = predictions.cpu().detach().numpy()
         predicted_index = list(torch.argmax(predictions, dim=-1).cpu().numpy())
         if args.data_format == "glue" or args.data_format == "regression":

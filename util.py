@@ -1,3 +1,5 @@
+import json
+
 import torch
 
 from pytorch_pretrained_bert import BertTokenizer, BertModel, BertForMaskedLM, BertForSequenceClassification, BertForNextSentencePrediction, BertForTokenClassification
@@ -22,7 +24,8 @@ def load_pretrained_model_tokenizer(model_type="BertForSequenceClassification", 
     elif model_type == "BertMSE":
         model = BertMSE()
     elif model_type == "BertForDoc2Query":
-        model = BertForDoc2Query(len(tokenizer.vocab))
+        bias = json.load(open("bias.json"))
+        model = BertForDoc2Query(len(bias), device=device)
     else:
         print("[Error]: unsupported model type")
         return None, None

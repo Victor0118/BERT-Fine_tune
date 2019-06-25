@@ -3,6 +3,9 @@ import numpy as np
 import subprocess
 import shlex
 from scipy.stats import pearsonr, spearmanr
+import string
+
+from nltk.tokenize import word_tokenize
 
 
 def evaluate_classification(prediction_index_list, labels):
@@ -23,6 +26,18 @@ def evaluate_ner(prediction_index_list, labels, label_map):
     print("evaluating {} sentences".format(len(prediction_index_list)))
     return get_ner_fmeasure(prediction_index_list, labels)
 
+def filter_query(q):
+	stopwords = ["a", "an", "and", "are", "as", "at", "be", "but", "by",\
+		  "for", "if", "in", "into", "is", "it",\
+		  "no", "not", "of", "on", "or", "such",\
+		  "that", "the", "their", "then", "there", "these",\
+		  "they", "this", "to", "was", "will", "with"]
+	q = q.lower()
+	tokenized_text = word_tokenize(q)
+	stopwords = set(stopwords)
+	filtered_tokens = [w for w in tokenized_text if not w in stopwords and w not in string.punctuation]
+	return filtered_tokens
+
 def evaluate_doc2query(fn):
     f = open(fn,'r', encoding='utf-8')
     precisions = []
@@ -32,7 +47,7 @@ def evaluate_doc2query(fn):
     for l in f:
         precision, recall, f1 = 0, 0, 0
         qid, docid, label_tokens, prediction_tokens = l.replace("\n", "").split("\t")
-        label_tokens = label_tokens.split()
+        label_tokens = filter_query(label_tokens)
         prediction_tokens = prediction_tokens.split()
         total += 1
         for lt in label_tokens:
